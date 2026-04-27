@@ -59,6 +59,7 @@ async function playAudio(buffer: ArrayBuffer): Promise<void> {
     process.platform === "darwin"
       ? Bun.spawnSync(["afplay", tmp])
       : Bun.spawnSync(["aplay", tmp]);
+  Bun.spawnSync(["rm", "-f", tmp]);
   if (cmd.exitCode !== 0) {
     throw new Error(`Audio playback failed: exit ${cmd.exitCode}`);
   }
