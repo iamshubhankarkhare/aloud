@@ -140,6 +140,12 @@ function startWakeWordListener(): ReturnType<typeof Bun.spawn> {
 }
 
 async function onVoiceInput(text: string): Promise<void> {
+  // Re-read config so /aloud:configure mute takes effect without restart
+  const liveConfig = loadConfig();
+  if (liveConfig.runtime.muted) {
+    console.error("[aloud] muted — ignoring voice input");
+    return;
+  }
   if (state.is(State.SPEAKING)) {
     console.error("[aloud] ignoring voice input while speaking");
     return;

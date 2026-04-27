@@ -49,4 +49,20 @@ describe("loadConfig", () => {
     expect(config.summarizer.system_prompt).toContain("3");
     expect(config.summarizer.system_prompt).not.toContain("{max_sentences}");
   });
+
+  it("uses default runtime when missing", async () => {
+    const tmp = `/tmp/aloud-config-runtime-${Date.now()}.json`;
+    await Bun.write(tmp, JSON.stringify({}));
+    const config = loadConfig(tmp);
+    expect(config.runtime.muted).toBe(false);
+    expect(config.runtime.sensitivity).toBe(0.5);
+  });
+
+  it("merges runtime overrides", async () => {
+    const tmp = `/tmp/aloud-config-runtime-${Date.now()}.json`;
+    await Bun.write(tmp, JSON.stringify({ runtime: { muted: true } }));
+    const config = loadConfig(tmp);
+    expect(config.runtime.muted).toBe(true);
+    expect(config.runtime.sensitivity).toBe(0.5); // default preserved
+  });
 });

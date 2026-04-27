@@ -36,6 +36,10 @@ export interface AloudConfig {
   ports: {
     kokoro: number;
   };
+  runtime: {
+    muted: boolean;
+    sensitivity: number;
+  };
 }
 
 const DEFAULTS: AloudConfig = {
@@ -66,6 +70,10 @@ const DEFAULTS: AloudConfig = {
   },
   ports: {
     kokoro: 8880,
+  },
+  runtime: {
+    muted: false,
+    sensitivity: 0.5,
   },
 };
 
