@@ -1,8 +1,6 @@
 import json
 import sys
-import time
 import queue
-import threading
 import numpy as np
 import sounddevice as sd
 import webrtcvad
@@ -71,7 +69,7 @@ class WakeWordListener:
             except queue.Empty:
                 break
 
-            pcm = (chunk[:, 0] * 32768).astype(np.int16)
+            pcm = (chunk[:, 0] * 32767).astype(np.int16)
             chunks.append(pcm)
 
             is_speech = self.vad.is_speech(pcm.tobytes(), SAMPLE_RATE)

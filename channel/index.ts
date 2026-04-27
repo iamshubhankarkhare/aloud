@@ -72,7 +72,7 @@ mcp.setRequestHandler(CallToolRequestSchema, async (req) => {
 });
 
 // --- Wake word subprocess ---
-function startWakeWordListener(): void {
+function startWakeWordListener(): ReturnType<typeof Bun.spawn> {
   const scriptDir = new URL(".", import.meta.url).pathname;
   const listenerPath = join(scriptDir, "../wakeword/listener.py");
   const configJson = JSON.stringify(config);
@@ -115,6 +115,7 @@ function startWakeWordListener(): void {
   }
 
   readLoop().catch((err) => console.error("[aloud] readLoop error:", err));
+  return child;
 }
 
 async function onVoiceInput(text: string): Promise<void> {
@@ -140,5 +141,13 @@ async function onVoiceInput(text: string): Promise<void> {
 
 // --- Start ---
 await mcp.connect(new StdioServerTransport());
-startWakeWordListener();
+const wakeWordChild = startWakeWordListener();
+
+for (const sig of ["SIGINT", "SIGTERM"] as const) {
+  process.on(sig, () => {
+    wakeWordChild.kill();
+    process.exit(0);
+  });
+}
+
 console.error(`[aloud] ready — wake word: "${config.wakeword.phrase}"`);

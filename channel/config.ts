@@ -42,7 +42,7 @@ const DEFAULTS: AloudConfig = {
   wakeword: {
     phrase: "hey jarvis",
     sensitivity: 0.5,
-    model: "openWakeWord/hey_jarvis.tflite",
+    model: "hey_jarvis",
   },
   stt: {
     provider: "whisper-local",
