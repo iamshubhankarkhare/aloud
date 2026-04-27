@@ -4,6 +4,7 @@ import queue
 import numpy as np
 import sounddevice as sd
 import webrtcvad
+import openwakeword.utils
 from openwakeword.model import Model as WakeWordModel
 from faster_whisper import WhisperModel
 from datetime import datetime, timezone
@@ -36,7 +37,8 @@ class WakeWordListener:
         self.phrase = ww_cfg["phrase"]
         self.sensitivity = ww_cfg.get("sensitivity", 0.5)
 
-        # Wake word model
+        # Wake word model — download bundled models on first run
+        openwakeword.utils.download_models()
         self.wakeword_model = WakeWordModel(
             wakeword_models=[ww_cfg.get("model", "hey_jarvis")],
             inference_framework="onnx",
