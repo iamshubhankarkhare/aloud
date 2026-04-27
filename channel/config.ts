@@ -70,8 +70,8 @@ const DEFAULTS: AloudConfig = {
 };
 
 export function defaultConfigPath(): string {
-  // ALOUD_CONFIG_PATH env var allows tests and CI to override without touching ~/.aloud
-  return process.env.ALOUD_CONFIG_PATH ?? join(homedir(), ".aloud", "config.json");
+  // ALOUD_CONFIG_PATH env var allows tests and CI to override without touching ~/.claude/channels/aloud
+  return process.env.ALOUD_CONFIG_PATH ?? join(homedir(), ".claude", "channels", "aloud", "config.json");
 }
 
 export function loadConfig(configPath = defaultConfigPath()): AloudConfig {

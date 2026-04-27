@@ -2,7 +2,7 @@
 """
 Minimal HTTP server wrapping kokoro-onnx.
 Serves POST /v1/audio/speech (OpenAI-compatible).
-Models auto-download to ~/.aloud/models/ on first run.
+Models auto-download to ~/.claude/channels/aloud/models/ on first run.
 """
 import json
 import os
@@ -15,7 +15,7 @@ from urllib.request import urlretrieve
 import numpy as np
 import soundfile as sf
 
-MODELS_DIR = Path(os.environ.get("ALOUD_MODELS_DIR", Path.home() / ".aloud" / "models"))
+MODELS_DIR = Path(os.environ.get("ALOUD_MODELS_DIR", Path.home() / ".claude" / "channels" / "aloud" / "models"))
 MODEL_URL = "https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0/kokoro-v1.0.onnx"
 VOICES_URL = "https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0/voices-v1.0.bin"
 
