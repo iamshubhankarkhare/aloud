@@ -1,5 +1,5 @@
 import { describe, it, expect } from "bun:test";
-import { StateMachine, State } from "../../channel/state";
+import { StateMachine, State } from "../../lib/state";
 
 describe("StateMachine", () => {
   it("starts in RUNNING state", () => {

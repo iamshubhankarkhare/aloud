@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from "bun:test";
 import { mkdirSync, writeFileSync, rmSync } from "fs";
 import { join } from "path";
-import { loadConfig, type AloudConfig } from "../../channel/config";
+import { loadConfig, type AloudConfig } from "../../lib/config";
 
 const TEST_CONFIG_DIR = "/tmp/aloud-test-config";
 const TEST_CONFIG_PATH = join(TEST_CONFIG_DIR, "config.json");

@@ -2,7 +2,7 @@
 import { mkdirSync, writeFileSync, existsSync } from "fs";
 import { createInterface } from "readline";
 import { homedir } from "os";
-import { defaultConfigPath } from "./channel/config";
+import { defaultConfigPath } from "./lib/config";
 
 const configPath = defaultConfigPath(); // honors ALOUD_CONFIG_PATH env var
 const configDir = `${homedir()}/.aloud`;

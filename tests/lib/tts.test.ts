@@ -1,6 +1,6 @@
 import { describe, it, expect, mock, beforeEach } from "bun:test";
-import { createTtsProvider, type TtsProvider } from "../../channel/tts";
-import type { AloudConfig } from "../../channel/config";
+import { createTtsProvider, type TtsProvider } from "../../lib/tts";
+import type { AloudConfig } from "../../lib/config";
 
 function kokoroConfig(overrides: Partial<AloudConfig["tts"]> = {}): AloudConfig["tts"] {
   return {

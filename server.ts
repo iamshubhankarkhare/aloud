@@ -1,4 +1,4 @@
-// channel/index.ts
+// server.ts
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import {
@@ -6,10 +6,10 @@ import {
   CallToolRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
 import { join } from "path";
-import { loadConfig } from "./config";
-import { StateMachine, State } from "./state";
-import { createTtsProvider } from "./tts";
-import { createSpeakHandler, SPEAK_TOOL_DEFINITION } from "./tools";
+import { loadConfig } from "./lib/config";
+import { StateMachine, State } from "./lib/state";
+import { createTtsProvider } from "./lib/tts";
+import { createSpeakHandler, SPEAK_TOOL_DEFINITION } from "./lib/tools";
 
 const config = loadConfig();
 const state = new StateMachine((s) => {
@@ -74,7 +74,7 @@ mcp.setRequestHandler(CallToolRequestSchema, async (req) => {
 // --- Kokoro TTS subprocess ---
 function startKokoroServer(): ReturnType<typeof Bun.spawn> {
   const scriptDir = new URL(".", import.meta.url).pathname;
-  const serverPath = join(scriptDir, "../wakeword/kokoro_server.py");
+  const serverPath = join(scriptDir, "wakeword/kokoro_server.py");
   const port = String(config.ports.kokoro);
 
   const child = Bun.spawn(
@@ -94,7 +94,7 @@ function startKokoroServer(): ReturnType<typeof Bun.spawn> {
 // --- Wake word subprocess ---
 function startWakeWordListener(): ReturnType<typeof Bun.spawn> {
   const scriptDir = new URL(".", import.meta.url).pathname;
-  const listenerPath = join(scriptDir, "../wakeword/listener.py");
+  const listenerPath = join(scriptDir, "wakeword/listener.py");
   const configJson = JSON.stringify(config);
 
   const child = Bun.spawn(["python3", listenerPath], {

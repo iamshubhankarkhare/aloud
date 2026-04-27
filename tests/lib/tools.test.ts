@@ -1,6 +1,6 @@
 import { describe, it, expect, mock } from "bun:test";
-import { createSpeakHandler } from "../../channel/tools";
-import type { AloudConfig } from "../../channel/config";
+import { createSpeakHandler } from "../../lib/tools";
+import type { AloudConfig } from "../../lib/config";
 
 function mockConfig(): AloudConfig {
   return {
