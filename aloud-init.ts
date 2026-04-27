@@ -15,12 +15,25 @@ if (existsSync(configPath)) {
 
 console.log("Aloud — ambient voice for Claude Code\n");
 
-const rl = createInterface({
-  input: process.stdin,
-  output: process.stdout,
-});
+// Pre-read stdin lines for piped/non-TTY mode (Bun readline.question has a
+// 2-call limit with piped stdin)
+let stdinLines: string[] = [];
+if (!process.stdin.isTTY) {
+  const chunks: Buffer[] = [];
+  for await (const chunk of process.stdin) {
+    chunks.push(chunk as Buffer);
+  }
+  stdinLines = Buffer.concat(chunks).toString().split("\n");
+}
+let lineIdx = 0;
+
+const rl = createInterface({ input: process.stdin, output: process.stdout });
 
 function prompt(question: string, defaultVal: string): Promise<string> {
+  if (!process.stdin.isTTY) {
+    const answer = (stdinLines[lineIdx++] ?? "").trim();
+    return Promise.resolve(answer || defaultVal);
+  }
   return new Promise((resolve) => {
     rl.question(`${question} [${defaultVal}]: `, (answer) => {
       resolve(answer.trim() || defaultVal);
@@ -29,43 +42,16 @@ function prompt(question: string, defaultVal: string): Promise<string> {
 }
 
 const phrase = await prompt("Wake word phrase", "hey jarvis");
-const sensitivity = await prompt("Wake word sensitivity (0-1)", "0.5");
-const sttModel = await prompt("Whisper model (tiny.en / base.en / small.en)", "base.en");
-const ttsVoice = await prompt("TTS voice (af_sky / af_bella / etc)", "af_sky");
-const ttsSpeed = await prompt("TTS speed (0.5-2.0)", "1.0");
+const voice = await prompt("TTS voice (kokoro)", "af_sky");
+const model = await prompt("Whisper model (tiny.en / base.en / small.en)", "base.en");
 const maxSentences = await prompt("Max sentences in spoken summary", "5");
-const maxTokens = await prompt("Max tokens for summary", "80");
 rl.close();
 
 const config = {
-  wakeword: {
-    phrase,
-    sensitivity: parseFloat(sensitivity),
-    model: "openWakeWord/hey_jarvis.tflite",
-  },
-  stt: {
-    provider: "whisper-local",
-    model: sttModel,
-    api_key: null,
-    base_url: null,
-  },
-  tts: {
-    provider: "kokoro",
-    voice: ttsVoice,
-    speed: parseFloat(ttsSpeed),
-    api_key: null,
-    base_url: "http://localhost:8880",
-    voice_id: null,
-  },
-  summarizer: {
-    system_prompt:
-      "You are an ambient voice assistant. Summarize what was just done in {max_sentences} sentences. Be direct and casual. No markdown, no lists — spoken output only.",
-    max_sentences: parseInt(maxSentences, 10),
-    max_tokens: parseInt(maxTokens, 10),
-  },
-  ports: {
-    kokoro: 8880,
-  },
+  wakeword: { phrase },
+  stt: { model },
+  tts: { voice },
+  summarizer: { max_sentences: parseInt(maxSentences, 10) },
 };
 
 mkdirSync(configDir, { recursive: true });
