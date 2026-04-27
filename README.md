@@ -34,15 +34,11 @@ Follow the prompts to set your wake word, voice, and Whisper model.
 
 ## Start
 
-**Step 1:** Start the Kokoro TTS server (in a separate terminal):
-```bash
-docker run -p 8880:8880 ghcr.io/remsky/kokoro-fastapi-cpu:v0.2.2
-```
-
-**Step 2:** Launch Aloud:
 ```bash
 ./aloud.sh
 ```
+
+Kokoro TTS starts automatically. On first run, models (~330MB) download to `~/.aloud/models/`.
 
 Or manually:
 ```bash

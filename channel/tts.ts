@@ -32,12 +32,14 @@ class KokoroProvider implements TtsProvider {
   ) {}
 
   async speak(text: string): Promise<void> {
-    const res = await this.fetchFn(`${this.config.base_url}/tts`, {
+    const res = await this.fetchFn(`${this.config.base_url}/v1/audio/speech`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        text,
+        model: "kokoro",
+        input: text,
         voice: this.config.voice_id ?? this.config.voice,
+        response_format: "wav",
         speed: this.config.speed,
       }),
     });

@@ -20,7 +20,7 @@ describe("createTtsProvider", () => {
     expect(provider).toBeDefined();
   });
 
-  it("kokoro provider calls correct endpoint with text and voice", async () => {
+  it("kokoro provider calls /v1/audio/speech with OpenAI-compatible body", async () => {
     const fetched: { url: string; body: any }[] = [];
     const fakeFetch = mock(async (url: string, opts: any) => {
       fetched.push({ url, body: JSON.parse(opts.body) });
@@ -34,9 +34,11 @@ describe("createTtsProvider", () => {
     await provider.speak("hello world");
 
     expect(fetched).toHaveLength(1);
-    expect(fetched[0].url).toBe("http://localhost:8880/tts");
-    expect(fetched[0].body.text).toBe("hello world");
+    expect(fetched[0].url).toBe("http://localhost:8880/v1/audio/speech");
+    expect(fetched[0].body.model).toBe("kokoro");
+    expect(fetched[0].body.input).toBe("hello world");
     expect(fetched[0].body.voice).toBe("af_sky");
+    expect(fetched[0].body.response_format).toBe("wav");
     expect(fetched[0].body.speed).toBe(1.0);
   });
 

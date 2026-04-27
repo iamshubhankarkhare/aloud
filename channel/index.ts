@@ -71,6 +71,26 @@ mcp.setRequestHandler(CallToolRequestSchema, async (req) => {
   throw new Error(`unknown tool: ${req.params.name}`);
 });
 
+// --- Kokoro TTS subprocess ---
+function startKokoroServer(): ReturnType<typeof Bun.spawn> {
+  const scriptDir = new URL(".", import.meta.url).pathname;
+  const serverPath = join(scriptDir, "../wakeword/kokoro_server.py");
+  const port = String(config.ports.kokoro);
+
+  const child = Bun.spawn(
+    ["python3", serverPath, "--host", "127.0.0.1", "--port", port],
+    {
+      stdout: "inherit",
+      stderr: "inherit",
+      onExit(_, code) {
+        console.error(`[aloud] kokoro server exited: ${code}`);
+      },
+    }
+  );
+
+  return child;
+}
+
 // --- Wake word subprocess ---
 function startWakeWordListener(): ReturnType<typeof Bun.spawn> {
   const scriptDir = new URL(".", import.meta.url).pathname;
@@ -141,10 +161,12 @@ async function onVoiceInput(text: string): Promise<void> {
 
 // --- Start ---
 await mcp.connect(new StdioServerTransport());
+const kokoroChild = startKokoroServer();
 const wakeWordChild = startWakeWordListener();
 
 for (const sig of ["SIGINT", "SIGTERM"] as const) {
   process.on(sig, () => {
+    kokoroChild.kill();
     wakeWordChild.kill();
     process.exit(0);
   });
