@@ -1,0 +1,6 @@
+{
+  "name": "aloud",
+  "description": "Ambient voice channel for Claude Code — local wake word, local STT, local TTS. No cloud required.",
+  "version": "0.1.0",
+  "keywords": ["voice", "wake-word", "tts", "stt", "channel", "mcp"]
+}

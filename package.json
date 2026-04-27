@@ -3,9 +3,8 @@
   "version": "0.1.0",
   "description": "Ambient voice channel plugin for Claude Code",
   "scripts": {
-    "start": "bun channel/index.ts",
-    "test": "bun test",
-    "init": "bun aloud-init.ts"
+    "start": "bun install --no-summary && bun server.ts",
+    "test": "bun test"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0"
