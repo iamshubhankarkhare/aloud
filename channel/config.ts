@@ -97,7 +97,7 @@ export function loadConfig(configPath = defaultConfigPath()): AloudConfig {
   }
 
   // Substitute {max_sentences} in system_prompt
-  merged.summarizer.system_prompt = merged.summarizer.system_prompt.replace(
+  merged.summarizer.system_prompt = merged.summarizer.system_prompt.replaceAll(
     "{max_sentences}",
     String(merged.summarizer.max_sentences)
   );
