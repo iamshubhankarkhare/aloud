@@ -8,6 +8,7 @@ allowed-tools:
   - Bash(uv *)
   - Bash(mkdir *)
   - Bash(ls *)
+  - Bash(rm *)
 ---
 
 # /aloud:configure — Aloud Channel Setup & Control
