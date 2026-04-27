@@ -6,6 +6,8 @@ import {
   CallToolRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
 import { join } from "path";
+import { homedir } from "os";
+import { mkdirSync, readFileSync, writeFileSync, rmSync } from "fs";
 import { loadConfig } from "./lib/config";
 import { StateMachine, State } from "./lib/state";
 import { createTtsProvider } from "./lib/tts";
@@ -175,16 +177,51 @@ if (!venvExists()) {
   process.exit(1);
 }
 
+const STATE_DIR = join(homedir(), ".claude", "channels", "aloud");
+const PID_FILE = join(STATE_DIR, "aloud.pid");
+
+mkdirSync(STATE_DIR, { recursive: true, mode: 0o700 });
+try {
+  const stale = parseInt(readFileSync(PID_FILE, "utf-8"), 10);
+  if (stale > 1 && stale !== process.pid) {
+    process.kill(stale, 0);  // throws ESRCH if process is dead
+    console.error(`[aloud] replacing stale instance pid=${stale}`);
+    process.kill(stale, "SIGTERM");
+  }
+} catch {}
+writeFileSync(PID_FILE, String(process.pid));
+
 await mcp.connect(new StdioServerTransport());
 const kokoroChild = startKokoroServer();
 const wakeWordChild = startWakeWordListener();
 
-for (const sig of ["SIGINT", "SIGTERM"] as const) {
-  process.on(sig, () => {
-    kokoroChild.kill();
-    wakeWordChild.kill();
-    process.exit(0);
-  });
+let shuttingDown = false;
+function shutdown(): void {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  console.error("[aloud] shutting down");
+  try {
+    if (parseInt(readFileSync(PID_FILE, "utf-8"), 10) === process.pid) {
+      rmSync(PID_FILE);
+    }
+  } catch {}
+  try { kokoroChild.kill(); } catch {}
+  try { wakeWordChild.kill(); } catch {}
+  setTimeout(() => process.exit(0), 1500);
 }
+process.stdin.on("end", shutdown);
+process.stdin.on("close", shutdown);
+process.on("SIGTERM", shutdown);
+process.on("SIGINT", shutdown);
+process.on("SIGHUP", shutdown);
+
+const bootPpid = process.ppid;
+setInterval(() => {
+  const orphaned =
+    (process.platform !== "win32" && process.ppid !== bootPpid) ||
+    process.stdin.destroyed ||
+    process.stdin.readableEnded;
+  if (orphaned) shutdown();
+}, 5000).unref();
 
 console.error(`[aloud] ready — wake word: "${config.wakeword.phrase}"`);
