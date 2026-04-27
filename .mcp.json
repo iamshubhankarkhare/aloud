@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "aloud": {
+      "command": "bun",
+      "args": ["channel/index.ts"]
+    }
+  }
+}
