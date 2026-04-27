@@ -6,7 +6,6 @@ import threading
 import numpy as np
 import sounddevice as sd
 import webrtcvad
-import openwakeword
 from openwakeword.model import Model as WakeWordModel
 from faster_whisper import WhisperModel
 from datetime import datetime, timezone
