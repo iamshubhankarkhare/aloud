@@ -124,16 +124,18 @@ async function onVoiceInput(text: string): Promise<void> {
   }
   state.transition(State.CAPTURING);
 
-  await mcp.notification({
-    method: "notifications/claude/channel",
-    params: {
-      content: text,
-      meta: { source_type: "voice" },
-    },
-  } as any);
-
-  // Transition back to RUNNING only after the event is pushed
-  state.transition(State.RUNNING);
+  try {
+    await mcp.notification({
+      method: "notifications/claude/channel",
+      params: {
+        content: text,
+        meta: { source_type: "voice" },
+      },
+    } as any);
+  } finally {
+    // Always return to RUNNING so the wake word listener can fire again
+    state.transition(State.RUNNING);
+  }
 }
 
 // --- Start ---
