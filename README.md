@@ -36,8 +36,7 @@ Follow the prompts to set your wake word, voice, and Whisper model.
 
 **Step 1:** Start the Kokoro TTS server (in a separate terminal):
 ```bash
-pip install kokoro-fastapi
-python -m kokoro_fastapi --port 8880
+docker run -p 8880:8880 ghcr.io/remsky/kokoro-fastapi-cpu:v0.2.2
 ```
 
 **Step 2:** Launch Aloud:
