@@ -1,69 +1,73 @@
 # Aloud
 
-Give your AI a voice.
+Ambient voice channel for Claude Code — local wake word, local STT, local TTS. No cloud required.
 
-Ambient voice channel plugin for Claude Code. Say your wake word, ask something, Claude responds through your speaker. No cloud APIs required.
-
-## How it works
-
-- **Wake word** → local STT (Whisper) → pushed into Claude Code session via MCP channel
-- Claude responds → calls `speak()` tool → MCP sampling formats it → local TTS (Kokoro) → speaker
-- One command starts everything
+The MCP server listens for a wake word, transcribes via Whisper locally, and forwards what you said to your Claude Code session as a channel event. Claude responds through your speaker via Kokoro TTS.
 
 ## Prerequisites
 
-- [Bun](https://bun.sh) installed
+- [Bun](https://bun.sh) — `curl -fsSL https://bun.sh/install | bash`
 - Python 3.11+
-- macOS or Linux
+- [uv](https://github.com/astral-sh/uv) — `curl -LsSf https://astral.sh/uv/install.sh | sh`
+- macOS or Linux (sound device required)
 
-```bash
-# Python deps
-pip install -r wakeword/requirements.txt
+## Quick Setup
 
-# Kokoro TTS (local)
-pip install kokoro-onnx
+**1. Install the plugin.**
+
+In a Claude Code session:
+
+```
+/plugin install <git-url>
+/reload-plugins
 ```
 
-## Setup
+**2. Configure.**
 
-```bash
-bun run init
+```
+/aloud:configure setup
 ```
 
-Follow the prompts to set your wake word, voice, and Whisper model.
+Creates a Python venv at `~/.claude/channels/aloud/.venv`, installs deps, prompts for wake word/voice/STT model, writes `~/.claude/channels/aloud/config.json`.
 
-## Start
+**3. Relaunch with the channel flag.**
 
-```bash
-./aloud.sh
+Exit your session and start a new one:
+
+```sh
+claude --channels plugin:aloud@<source>
 ```
 
-Kokoro TTS starts automatically. On first run, models (~330MB) download to `~/.aloud/models/`.
+The first TTS request downloads Kokoro models (~330MB) to `~/.claude/channels/aloud/models/` — one-time.
 
-Or manually:
-```bash
-claude --dangerously-load-development-channels server:aloud
+**4. Talk.**
+
+Say your wake word. Ask anything. Claude responds through your speaker.
+
+## Runtime control
+
+`/aloud:configure` is the single skill — same one for setup, mute, sensitivity, status, reinstall.
+
 ```
+/aloud:configure                          # status
+/aloud:configure setup                    # interactive setup or update
+/aloud:configure mute                     # ignore wake word
+/aloud:configure unmute                   # resume listening
+/aloud:configure sensitivity 0.6          # adjust wake word strictness
+/aloud:configure reinstall                # rebuild the Python venv
+```
+
+Mute/sensitivity changes take effect immediately — the server re-reads `config.json` on every voice event.
 
 ## Configuration
 
-Config lives at `~/.aloud/config.json`. All fields are optional — unset fields use defaults.
+See [ACCESS.md](./ACCESS.md) for the full config schema, state-dir layout, and TTS/STT provider options.
 
-### TTS Providers
+## Tools exposed to the assistant
 
-| Provider | Config |
-|---|---|
-| Kokoro (local, default) | `tts.provider: "kokoro"` |
-| OpenAI | `tts.provider: "openai"`, `tts.api_key`, `tts.voice_id` |
-| OpenAI-compatible | `tts.provider: "openai-compatible"`, `tts.base_url`, `tts.api_key` |
-| ElevenLabs | `tts.provider: "elevenlabs"`, `tts.api_key`, `tts.voice_id` |
-
-### STT Providers
-
-| Provider | Config |
-|---|---|
-| Whisper local (default) | `stt.provider: "whisper-local"`, `stt.model: "base.en"` |
-| OpenAI | `stt.provider: "openai"`, `stt.api_key` |
+| Tool | Purpose |
+| --- | --- |
+| `speak` | Speak a response aloud. The text is summarized for spoken output via MCP sampling, then synthesized by Kokoro and played through the speaker. Call when responding to a voice-initiated message, when a long task completes, or when you need user input. Do NOT call for routine silent tool use. |
 
 ## License
 
