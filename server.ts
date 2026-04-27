@@ -10,6 +10,7 @@ import { loadConfig } from "./lib/config";
 import { StateMachine, State } from "./lib/state";
 import { createTtsProvider } from "./lib/tts";
 import { createSpeakHandler, SPEAK_TOOL_DEFINITION } from "./lib/tools";
+import { getVenvPython, venvExists } from "./lib/bootstrap";
 
 const config = loadConfig();
 const state = new StateMachine((s) => {
@@ -78,7 +79,7 @@ function startKokoroServer(): ReturnType<typeof Bun.spawn> {
   const port = String(config.ports.kokoro);
 
   const child = Bun.spawn(
-    ["python3", serverPath, "--host", "127.0.0.1", "--port", port],
+    [getVenvPython(), serverPath, "--host", "127.0.0.1", "--port", port],
     {
       stdout: "inherit",
       stderr: "inherit",
@@ -97,7 +98,7 @@ function startWakeWordListener(): ReturnType<typeof Bun.spawn> {
   const listenerPath = join(scriptDir, "wakeword/listener.py");
   const configJson = JSON.stringify(config);
 
-  const child = Bun.spawn(["python3", listenerPath], {
+  const child = Bun.spawn([getVenvPython(), listenerPath], {
     stdin: new TextEncoder().encode(configJson),
     stdout: "pipe",
     stderr: "inherit",
@@ -160,6 +161,14 @@ async function onVoiceInput(text: string): Promise<void> {
 }
 
 // --- Start ---
+if (!venvExists()) {
+  console.error(
+    `[aloud] Python venv missing at ${getVenvPython()}\n` +
+    `[aloud] Run /aloud:configure in Claude Code to set up dependencies.`
+  );
+  process.exit(1);
+}
+
 await mcp.connect(new StdioServerTransport());
 const kokoroChild = startKokoroServer();
 const wakeWordChild = startWakeWordListener();
