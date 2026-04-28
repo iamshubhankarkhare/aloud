@@ -1,6 +1,6 @@
 {
   "name": "aloud",
-  "description": "Ambient voice channel for Claude Code — local wake word, local STT, local TTS. No cloud required.",
-  "version": "0.1.0",
-  "keywords": ["voice", "wake-word", "tts", "stt", "channel", "mcp"]
+  "description": "Voice output for Claude Code — hook-driven sound effects on tool use, sampling-summarized TTS via local Kokoro. No cloud, no microphone.",
+  "version": "0.2.0",
+  "keywords": ["voice", "tts", "sound", "audio", "hooks", "mcp"]
 }

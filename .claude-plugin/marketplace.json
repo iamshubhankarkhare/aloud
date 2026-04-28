@@ -1,7 +1,7 @@
 {
   "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
   "name": "aloud",
-  "description": "Ambient voice channel for Claude Code — local wake word, local STT, local TTS",
+  "description": "Voice output for Claude Code — hook-driven sound effects + sampling-summarized TTS",
   "owner": {
     "name": "Shubhankar Khare",
     "email": "shubhankar@atlan.com"
@@ -9,7 +9,7 @@
   "plugins": [
     {
       "name": "aloud",
-      "description": "Ambient voice channel plugin for Claude Code — local wake word, local STT, local TTS. No cloud required.",
+      "description": "Voice output plugin for Claude Code — hook-driven sound effects on tool use, sampling-summarized TTS via local Kokoro. No cloud, no microphone.",
       "category": "productivity",
       "source": {
         "source": "git-subdir",

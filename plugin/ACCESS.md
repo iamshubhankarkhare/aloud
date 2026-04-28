@@ -85,7 +85,7 @@ To use your own sounds: drop replacement WAVs at the same paths. They're loaded 
 
 ## Hooks
 
-Plugin ships `plugin/.claude-plugin/hooks/hooks.json`. Hooks install automatically with the plugin and fire even when you're not running with `--channels`.
+Plugin ships `plugin/.claude-plugin/hooks/hooks.json`. Hooks install automatically with the plugin and fire on every Claude Code session — no flags needed.
 
 User-level `~/.claude/settings.json` hooks aren't affected.
 
