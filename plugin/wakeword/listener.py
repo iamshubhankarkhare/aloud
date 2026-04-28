@@ -1,4 +1,5 @@
 import json
+import os
 import sys
 import queue
 import numpy as np
@@ -9,6 +10,8 @@ from openwakeword.model import Model as WakeWordModel
 from faster_whisper import WhisperModel
 from datetime import datetime, timezone
 from typing import Any
+
+DEBUG = os.environ.get("ALOUD_DEBUG") == "1"
 
 SAMPLE_RATE = 16000
 CHUNK_MS = 30          # webrtcvad requires 10/20/30ms chunks
@@ -104,13 +107,17 @@ class WakeWordListener:
 
                 buffer = np.append(buffer, chunk[:, 0])
 
-                # Feed 80ms windows to wake word model
+                # Feed 80ms windows to wake word model.
+                # openwakeword expects samples in int16 range — scale float32
+                # from sounddevice ([-1.0, 1.0]) up to [-32768, 32767].
                 while len(buffer) >= CHUNK_SAMPLES * 4:
-                    window = buffer[:CHUNK_SAMPLES * 4]
+                    window = (buffer[:CHUNK_SAMPLES * 4] * 32767).astype(np.int16)
                     buffer = buffer[CHUNK_SAMPLES:]
 
                     predictions = self.wakeword_model.predict(window)
                     confidence = max(predictions.values(), default=0.0)
+                    if DEBUG and confidence > 0.05:
+                        print(f"[aloud] confidence={confidence:.3f}", file=sys.stderr)
 
                     if confidence >= self.sensitivity:
                         print(f"[aloud] wake word detected ({confidence:.2f})", file=sys.stderr)
