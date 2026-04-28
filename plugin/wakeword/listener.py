@@ -27,7 +27,7 @@ def format_result(text: str, confidence: float) -> str:
         raise ValueError("Cannot format empty transcription result")
     payload = {
         "text": text,
-        "confidence": round(confidence, 3),
+        "confidence": round(float(confidence), 3),
         "timestamp": datetime.now(timezone.utc).isoformat(),
     }
     return json.dumps(payload)
