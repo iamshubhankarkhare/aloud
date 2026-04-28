@@ -16,6 +16,7 @@ DEBUG = os.environ.get("ALOUD_DEBUG") == "1"
 SAMPLE_RATE = 16000
 CHUNK_MS = 30          # webrtcvad requires 10/20/30ms chunks
 CHUNK_SAMPLES = int(SAMPLE_RATE * CHUNK_MS / 1000)
+WAKE_WORD_WINDOW = 1280  # openwakeword expects 80ms (1280 samples) per predict
 SILENCE_LIMIT_MS = 800 # stop recording after 800ms of silence
 VAD_AGGRESSIVENESS = 3  # 0-3, higher = more aggressive filtering
 
@@ -45,6 +46,11 @@ class WakeWordListener:
         self.wakeword_model = WakeWordModel(
             wakeword_models=[ww_cfg.get("model", "hey_jarvis")],
             inference_framework="onnx",
+        )
+        print(
+            f"[aloud] wake word models loaded: {list(self.wakeword_model.models.keys())}",
+            file=sys.stderr,
+            flush=True,
         )
 
         # Whisper STT
@@ -114,12 +120,13 @@ class WakeWordListener:
                 if peak > max_peak_window:
                     max_peak_window = peak
 
-                # Feed 80ms windows to wake word model.
-                # openwakeword expects samples in int16 range — scale float32
-                # from sounddevice ([-1.0, 1.0]) up to [-32768, 32767].
-                while len(buffer) >= CHUNK_SAMPLES * 4:
-                    window = (buffer[:CHUNK_SAMPLES * 4] * 32767).astype(np.int16)
-                    buffer = buffer[CHUNK_SAMPLES:]
+                # Feed 80ms (1280-sample) windows to openwakeword.
+                # Scale float32 ([-1.0, 1.0]) to int16 range and pass int16 array.
+                # Advance by full window each predict (no overlap) — openwakeword
+                # buffers internally and produces a confidence per frame.
+                while len(buffer) >= WAKE_WORD_WINDOW:
+                    window = (buffer[:WAKE_WORD_WINDOW] * 32767).astype(np.int16)
+                    buffer = buffer[WAKE_WORD_WINDOW:]
 
                     predictions = self.wakeword_model.predict(window)
                     confidence = max(predictions.values(), default=0.0)
@@ -127,13 +134,15 @@ class WakeWordListener:
                         max_confidence_window = confidence
                     windows_processed += 1
 
-                    # Heartbeat: print mic peak + max wake-word confidence every ~1s
-                    # (33 windows × 30ms = ~1s) so we can see whether audio is flowing
-                    # and whether the wake word model reacts to anything at all.
-                    if windows_processed % 33 == 0:
+                    # Heartbeat: print mic peak + per-model confidence every ~1s
+                    # (12 windows × 80ms ≈ 1s).
+                    if windows_processed % 12 == 0:
+                        preds_str = " ".join(
+                            f"{k}={v:.3f}" for k, v in predictions.items()
+                        )
                         print(
                             f"[aloud] heartbeat peak={max_peak_window:.4f} "
-                            f"max_conf={max_confidence_window:.3f}",
+                            f"max_conf={max_confidence_window:.3f} | {preds_str}",
                             file=sys.stderr,
                             flush=True,
                         )
