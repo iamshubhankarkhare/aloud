@@ -2,24 +2,11 @@ import { existsSync, readFileSync } from "fs";
 import { homedir } from "os";
 import { join } from "path";
 
-const VALID_STT_PROVIDERS = ["whisper-local", "openai", "openai-compatible"] as const;
 const VALID_TTS_PROVIDERS = ["kokoro", "openai", "elevenlabs", "openai-compatible"] as const;
 
-type SttProvider = typeof VALID_STT_PROVIDERS[number];
 type TtsProvider = typeof VALID_TTS_PROVIDERS[number];
 
 export interface AloudConfig {
-  wakeword: {
-    phrase: string;
-    sensitivity: number;
-    model: string;
-  };
-  stt: {
-    provider: SttProvider;
-    model: string;
-    api_key: string | null;
-    base_url: string | null;
-  };
   tts: {
     provider: TtsProvider;
     voice: string;
@@ -37,23 +24,15 @@ export interface AloudConfig {
     kokoro: number;
   };
   runtime: {
-    muted: boolean;
-    sensitivity: number;
+    sounds_enabled: boolean;
+    tts_enabled: boolean;
+    tts_volume: number;
+    tts_min_chars: number;
+    theme: string;
   };
 }
 
 const DEFAULTS: AloudConfig = {
-  wakeword: {
-    phrase: "hey jarvis",
-    sensitivity: 0.5,
-    model: "hey_jarvis",
-  },
-  stt: {
-    provider: "whisper-local",
-    model: "base.en",
-    api_key: null,
-    base_url: null,
-  },
   tts: {
     provider: "kokoro",
     voice: "af_sky",
@@ -64,21 +43,23 @@ const DEFAULTS: AloudConfig = {
   },
   summarizer: {
     system_prompt:
-      "You are an ambient voice assistant. Summarize what was just done in {max_sentences} sentences. Be direct and casual. No markdown, no lists — spoken output only.",
-    max_sentences: 5,
+      "You are summarizing for spoken playback. Output ONE sentence (max 15 words), conversational tone, no markdown, no code, no lists. Capture the essence of what was just done or said.",
+    max_sentences: 1,
     max_tokens: 80,
   },
   ports: {
     kokoro: 8880,
   },
   runtime: {
-    muted: false,
-    sensitivity: 0.5,
+    sounds_enabled: true,
+    tts_enabled: false,
+    tts_volume: 0.5,
+    tts_min_chars: 80,
+    theme: "lofi",
   },
 };
 
 export function defaultConfigPath(): string {
-  // ALOUD_CONFIG_PATH env var allows tests and CI to override without touching ~/.claude/channels/aloud
   return process.env.ALOUD_CONFIG_PATH ?? join(homedir(), ".claude", "channels", "aloud", "config.json");
 }
 
@@ -96,15 +77,10 @@ export function loadConfig(configPath = defaultConfigPath()): AloudConfig {
 
   const merged = deepMerge(DEFAULTS, userConfig) as AloudConfig;
 
-  // Validate providers
   if (!VALID_TTS_PROVIDERS.includes(merged.tts.provider)) {
     throw new Error(`Unknown TTS provider: ${merged.tts.provider}. Valid: ${VALID_TTS_PROVIDERS.join(", ")}`);
   }
-  if (!VALID_STT_PROVIDERS.includes(merged.stt.provider)) {
-    throw new Error(`Unknown STT provider: ${merged.stt.provider}. Valid: ${VALID_STT_PROVIDERS.join(", ")}`);
-  }
 
-  // Substitute {max_sentences} in system_prompt
   merged.summarizer.system_prompt = merged.summarizer.system_prompt.replaceAll(
     "{max_sentences}",
     String(merged.summarizer.max_sentences)

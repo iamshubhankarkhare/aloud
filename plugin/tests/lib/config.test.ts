@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from "bun:test";
 import { mkdirSync, writeFileSync, rmSync } from "fs";
 import { join } from "path";
-import { loadConfig, type AloudConfig } from "../../lib/config";
+import { loadConfig } from "../../lib/config";
 
 const TEST_CONFIG_DIR = "/tmp/aloud-test-config";
 const TEST_CONFIG_PATH = join(TEST_CONFIG_DIR, "config.json");
@@ -17,19 +17,21 @@ afterEach(() => {
 describe("loadConfig", () => {
   it("returns defaults when config file does not exist", () => {
     const config = loadConfig("/tmp/nonexistent-aloud-99999/config.json");
-    expect(config.wakeword.phrase).toBe("hey jarvis");
-    expect(config.stt.provider).toBe("whisper-local");
     expect(config.tts.provider).toBe("kokoro");
-    expect(config.summarizer.max_sentences).toBe(5);
+    expect(config.tts.voice).toBe("af_sky");
+    expect(config.summarizer.max_sentences).toBe(1);
+    expect(config.runtime.sounds_enabled).toBe(true);
+    expect(config.runtime.tts_enabled).toBe(false);
+    expect(config.runtime.tts_volume).toBe(0.5);
+    expect(config.runtime.tts_min_chars).toBe(80);
+    expect(config.runtime.theme).toBe("lofi");
   });
 
   it("merges user config over defaults", () => {
     writeFileSync(TEST_CONFIG_PATH, JSON.stringify({
-      wakeword: { phrase: "hey forge" },
       tts: { voice: "af_bella" }
     }));
     const config = loadConfig(TEST_CONFIG_PATH);
-    expect(config.wakeword.phrase).toBe("hey forge");
     expect(config.tts.voice).toBe("af_bella");
     expect(config.tts.provider).toBe("kokoro"); // default preserved
   });
@@ -43,26 +45,19 @@ describe("loadConfig", () => {
 
   it("substitutes {max_sentences} in system_prompt", () => {
     writeFileSync(TEST_CONFIG_PATH, JSON.stringify({
-      summarizer: { max_sentences: 3 }
+      summarizer: { system_prompt: "Speak in {max_sentences} sentences.", max_sentences: 3 }
     }));
     const config = loadConfig(TEST_CONFIG_PATH);
     expect(config.summarizer.system_prompt).toContain("3");
     expect(config.summarizer.system_prompt).not.toContain("{max_sentences}");
   });
 
-  it("uses default runtime when missing", async () => {
-    const tmp = `/tmp/aloud-config-runtime-${Date.now()}.json`;
-    await Bun.write(tmp, JSON.stringify({}));
-    const config = loadConfig(tmp);
-    expect(config.runtime.muted).toBe(false);
-    expect(config.runtime.sensitivity).toBe(0.5);
-  });
-
   it("merges runtime overrides", async () => {
     const tmp = `/tmp/aloud-config-runtime-${Date.now()}.json`;
-    await Bun.write(tmp, JSON.stringify({ runtime: { muted: true } }));
+    await Bun.write(tmp, JSON.stringify({ runtime: { tts_enabled: true } }));
     const config = loadConfig(tmp);
-    expect(config.runtime.muted).toBe(true);
-    expect(config.runtime.sensitivity).toBe(0.5); // default preserved
+    expect(config.runtime.tts_enabled).toBe(true);
+    expect(config.runtime.sounds_enabled).toBe(true); // default preserved
+    expect(config.runtime.tts_volume).toBe(0.5);
   });
 });
