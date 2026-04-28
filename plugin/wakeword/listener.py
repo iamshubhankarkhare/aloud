@@ -90,6 +90,9 @@ class WakeWordListener:
     def run(self) -> None:
         self._running = True
         buffer = np.array([], dtype=np.float32)
+        windows_processed = 0
+        max_confidence_window = 0.0
+        max_peak_window = 0.0
 
         with sd.InputStream(
             samplerate=SAMPLE_RATE,
@@ -99,6 +102,7 @@ class WakeWordListener:
             callback=self._audio_callback,
         ):
             print(f"[aloud] listening for wake word: {self.phrase!r}", file=sys.stderr)
+            print(f"[aloud] debug heartbeat enabled — speak and watch the levels", file=sys.stderr, flush=True)
             while self._running:
                 try:
                     chunk = self._audio_queue.get(timeout=0.5)
@@ -106,6 +110,9 @@ class WakeWordListener:
                     continue
 
                 buffer = np.append(buffer, chunk[:, 0])
+                peak = float(np.abs(chunk).max())
+                if peak > max_peak_window:
+                    max_peak_window = peak
 
                 # Feed 80ms windows to wake word model.
                 # openwakeword expects samples in int16 range — scale float32
@@ -116,8 +123,22 @@ class WakeWordListener:
 
                     predictions = self.wakeword_model.predict(window)
                     confidence = max(predictions.values(), default=0.0)
-                    if DEBUG and confidence > 0.05:
-                        print(f"[aloud] confidence={confidence:.3f}", file=sys.stderr)
+                    if confidence > max_confidence_window:
+                        max_confidence_window = confidence
+                    windows_processed += 1
+
+                    # Heartbeat: print mic peak + max wake-word confidence every ~1s
+                    # (33 windows × 30ms = ~1s) so we can see whether audio is flowing
+                    # and whether the wake word model reacts to anything at all.
+                    if windows_processed % 33 == 0:
+                        print(
+                            f"[aloud] heartbeat peak={max_peak_window:.4f} "
+                            f"max_conf={max_confidence_window:.3f}",
+                            file=sys.stderr,
+                            flush=True,
+                        )
+                        max_peak_window = 0.0
+                        max_confidence_window = 0.0
 
                     if confidence >= self.sensitivity:
                         print(f"[aloud] wake word detected ({confidence:.2f})", file=sys.stderr)
