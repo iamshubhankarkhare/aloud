@@ -12,7 +12,8 @@ echo "[dev] $(pwd)"
 echo "[dev] starting bun server.ts; ctrl-c to stop"
 FIFO=$(mktemp -u)
 mkfifo "$FIFO"
-sleep infinity > "$FIFO" &
+# `sleep infinity` is GNU-only — use a large number for BSD/macOS compat
+sleep 86400 > "$FIFO" &
 WRITER=$!
 trap "kill $WRITER 2>/dev/null; rm -f $FIFO" EXIT
 bun server.ts < "$FIFO"
