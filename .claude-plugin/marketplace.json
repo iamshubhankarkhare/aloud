@@ -1,0 +1,22 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "aloud",
+  "description": "Ambient voice channel for Claude Code — local wake word, local STT, local TTS",
+  "owner": {
+    "name": "Shubhankar Khare",
+    "email": "shubhankar@atlan.com"
+  },
+  "plugins": [
+    {
+      "name": "aloud",
+      "description": "Ambient voice channel plugin for Claude Code — local wake word, local STT, local TTS. No cloud required.",
+      "category": "productivity",
+      "source": {
+        "source": "git-subdir",
+        "url": "https://github.com/iamshubhankarkhare/aloud.git",
+        "path": "."
+      },
+      "homepage": "https://github.com/iamshubhankarkhare/aloud"
+    }
+  ]
+}
