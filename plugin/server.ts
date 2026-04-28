@@ -209,19 +209,21 @@ function shutdown(): void {
   try { wakeWordChild.kill(); } catch {}
   setTimeout(() => process.exit(0), 1500);
 }
-process.stdin.on("end", shutdown);
-process.stdin.on("close", shutdown);
+// Note: do NOT register process.stdin "end"/"close" handlers — the MCP SDK
+// consumes stdin via its own readable interface and may mark it as ended,
+// which would trigger spurious shutdowns. Rely on signal handlers + parent
+// ppid orphan detection instead.
 process.on("SIGTERM", shutdown);
 process.on("SIGINT", shutdown);
 process.on("SIGHUP", shutdown);
 
+// Orphan watchdog: only kill ourselves if our parent process actually died.
+// stdin checks are deliberately omitted — see comment above.
 const bootPpid = process.ppid;
 setInterval(() => {
-  const orphaned =
-    (process.platform !== "win32" && process.ppid !== bootPpid) ||
-    process.stdin.destroyed ||
-    process.stdin.readableEnded;
-  if (orphaned) shutdown();
+  if (process.platform !== "win32" && process.ppid !== bootPpid) {
+    shutdown();
+  }
 }, 5000).unref();
 
 console.error(`[aloud] ready — wake word: "${config.wakeword.phrase}"`);
