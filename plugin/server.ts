@@ -1,4 +1,4 @@
-// server.ts
+// server.ts — Aloud v2 (voice output only)
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import {
@@ -9,37 +9,37 @@ import { join } from "path";
 import { homedir } from "os";
 import { mkdirSync, readFileSync, writeFileSync, rmSync } from "fs";
 import { loadConfig } from "./lib/config";
-import { StateMachine, State } from "./lib/state";
 import { createTtsProvider } from "./lib/tts";
 import { createSpeakHandler, SPEAK_TOOL_DEFINITION } from "./lib/tools";
 import { getVenvPython, venvExists } from "./lib/bootstrap";
 
 const config = loadConfig();
-const state = new StateMachine((s) => {
-  console.error(`[aloud] state → ${s}`);
-});
 const tts = createTtsProvider(config.tts);
 
 // --- MCP Server ---
 const mcp = new Server(
-  { name: "aloud", version: "0.1.0" },
+  { name: "aloud", version: "0.2.0" },
   {
-    capabilities: {
-      experimental: { "claude/channel": {} },
-      tools: {},
-    },
+    capabilities: { tools: {} },
     instructions: `
-Voice messages arrive as <channel source="aloud" source_type="voice">.
-Respond naturally to them. Call the speak tool when:
-- Responding to a voice-initiated message
-- A long-running task completes and the user should know
-- You need user input or permission to continue
-Do NOT call speak for routine silent tool use or background file edits.
+You have a "speak" tool that generates spoken audio output via local TTS.
+
+When you finish a substantive response — answering a question, completing a task, surfacing an important result — call the speak tool with the text you'd like spoken. Pass your full response text as the "text" argument. The tool internally summarizes it to a single short sentence for spoken playback, so you do not need to summarize yourself.
+
+The tool no-ops silently when TTS is disabled by the user, so calling it is safe by default.
+
+Skip speak for:
+- Routine silent tool use (background reads, internal grep)
+- Code-only outputs (the user reads code, doesn't need it spoken)
+- Very short replies (≤ 80 chars; the tool already filters these)
+- Multi-step intermediate progress (only speak at meaningful checkpoints)
+
+The user toggles TTS on/off via /aloud:configure tts on|off. Sound effects on tool use fire automatically via plugin hooks — you don't manage those.
     `.trim(),
   }
 );
 
-// Speak tool
+// Speak tool — wires sampling + Kokoro
 const speakHandler = createSpeakHandler(
   config,
   async (params) => {
@@ -60,15 +60,7 @@ mcp.setRequestHandler(ListToolsRequestSchema, async () => ({
 
 mcp.setRequestHandler(CallToolRequestSchema, async (req) => {
   if (req.params.name === "speak") {
-    if (state.is(State.CAPTURING)) {
-      return { content: [{ type: "text", text: "skipped: currently capturing voice input" }] };
-    }
-    state.transition(State.SPEAKING);
-    try {
-      await speakHandler(req.params.arguments as { text: string });
-    } finally {
-      state.transition(State.LISTENING);
-    }
+    await speakHandler(req.params.arguments as { text: string });
     return { content: [{ type: "text", text: "spoken" }] };
   }
   throw new Error(`unknown tool: ${req.params.name}`);
@@ -77,7 +69,7 @@ mcp.setRequestHandler(CallToolRequestSchema, async (req) => {
 // --- Kokoro TTS subprocess ---
 function startKokoroServer(): ReturnType<typeof Bun.spawn> {
   const scriptDir = new URL(".", import.meta.url).pathname;
-  const serverPath = join(scriptDir, "wakeword/kokoro_server.py");
+  const serverPath = join(scriptDir, "tts/kokoro_server.py");
   const port = String(config.ports.kokoro);
 
   const child = Bun.spawn(
@@ -94,85 +86,11 @@ function startKokoroServer(): ReturnType<typeof Bun.spawn> {
   return child;
 }
 
-// --- Wake word subprocess ---
-function startWakeWordListener(): ReturnType<typeof Bun.spawn> {
-  const scriptDir = new URL(".", import.meta.url).pathname;
-  const listenerPath = join(scriptDir, "wakeword/listener.py");
-  const configJson = JSON.stringify(config);
-
-  const child = Bun.spawn([getVenvPython(), listenerPath], {
-    stdin: new TextEncoder().encode(configJson),
-    stdout: "pipe",
-    stderr: "inherit",
-    onExit(_, code) {
-      console.error(`[aloud] wake word listener exited: ${code}`);
-    },
-  });
-
-  const reader = child.stdout.getReader();
-  const decoder = new TextDecoder();
-  let buffer = "";
-
-  async function readLoop(): Promise<void> {
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-
-      buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split("\n");
-      buffer = lines.pop() ?? "";
-
-      for (const line of lines) {
-        const trimmed = line.trim();
-        if (!trimmed) continue;
-        try {
-          const parsed = JSON.parse(trimmed);
-          if (typeof parsed.text === "string" && parsed.text) {
-            onVoiceInput(parsed.text);
-          }
-        } catch {
-          console.error("[aloud] bad stdout line from listener:", trimmed);
-        }
-      }
-    }
-  }
-
-  readLoop().catch((err) => console.error("[aloud] readLoop error:", err));
-  return child;
-}
-
-async function onVoiceInput(text: string): Promise<void> {
-  // Re-read config so /aloud:configure mute takes effect without restart
-  const liveConfig = loadConfig();
-  if (liveConfig.runtime.muted) {
-    console.error("[aloud] muted — ignoring voice input");
-    return;
-  }
-  if (state.is(State.SPEAKING)) {
-    console.error("[aloud] ignoring voice input while speaking");
-    return;
-  }
-  state.transition(State.CAPTURING);
-
-  try {
-    await mcp.notification({
-      method: "notifications/claude/channel",
-      params: {
-        content: text,
-        meta: { source_type: "voice" },
-      },
-    } as any);
-  } finally {
-    // Always return to RUNNING so the wake word listener can fire again
-    state.transition(State.RUNNING);
-  }
-}
-
 // --- Start ---
 if (!venvExists()) {
   console.error(
     `[aloud] Python venv missing at ${getVenvPython()}\n` +
-    `[aloud] Run /aloud:configure in Claude Code to set up dependencies.`
+    `[aloud] Run /aloud:configure setup in Claude Code to set up dependencies.`
   );
   process.exit(1);
 }
@@ -193,7 +111,6 @@ writeFileSync(PID_FILE, String(process.pid));
 
 await mcp.connect(new StdioServerTransport());
 const kokoroChild = startKokoroServer();
-const wakeWordChild = startWakeWordListener();
 
 let shuttingDown = false;
 function shutdown(): void {
@@ -206,7 +123,6 @@ function shutdown(): void {
     }
   } catch {}
   try { kokoroChild.kill(); } catch {}
-  try { wakeWordChild.kill(); } catch {}
   setTimeout(() => process.exit(0), 1500);
 }
 // Note: do NOT register process.stdin "end"/"close" handlers — the MCP SDK
@@ -218,7 +134,6 @@ process.on("SIGINT", shutdown);
 process.on("SIGHUP", shutdown);
 
 // Orphan watchdog: only kill ourselves if our parent process actually died.
-// stdin checks are deliberately omitted — see comment above.
 const bootPpid = process.ppid;
 setInterval(() => {
   if (process.platform !== "win32" && process.ppid !== bootPpid) {
@@ -226,4 +141,7 @@ setInterval(() => {
   }
 }, 5000).unref();
 
-console.error(`[aloud] ready — wake word: "${config.wakeword.phrase}"`);
+console.error(
+  `[aloud] ready — sounds ${config.runtime.sounds_enabled ? "ON" : "OFF"}, ` +
+  `TTS ${config.runtime.tts_enabled ? "ON" : "OFF"}`
+);
