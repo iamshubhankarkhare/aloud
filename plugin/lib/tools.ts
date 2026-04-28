@@ -1,5 +1,6 @@
 import type { AloudConfig } from "./config";
 import type { TtsProvider } from "./tts";
+import { loadConfig } from "./config";
 
 type SamplingFn = (params: {
   messages: Array<{ role: string; content: { type: string; text: string } }>;
@@ -19,6 +20,12 @@ export function createSpeakHandler(
   return async function handleSpeak(args: { text: string }): Promise<void> {
     const { text } = args;
 
+    // Re-read config so /aloud:configure tts on/off takes effect without restart.
+    const liveConfig = loadConfig();
+
+    if (!liveConfig.runtime.tts_enabled) return;
+    if (text.length < liveConfig.runtime.tts_min_chars) return;
+
     // Ask Claude Code to format for TTS via MCP sampling
     let summary = text;
     try {
@@ -32,8 +39,8 @@ export function createSpeakHandler(
             },
           },
         ],
-        systemPrompt: config.summarizer.system_prompt,
-        maxTokens: config.summarizer.max_tokens,
+        systemPrompt: liveConfig.summarizer.system_prompt,
+        maxTokens: liveConfig.summarizer.max_tokens,
         modelPreferences: {
           speedPriority: 1.0,
           costPriority: 0.8,
@@ -45,7 +52,6 @@ export function createSpeakHandler(
         summary = formatted;
       }
     } catch (err) {
-      // sampling failed — speak original text
       console.error("[aloud] sampling failed, using original text:", err);
     }
 
@@ -56,13 +62,13 @@ export function createSpeakHandler(
 export const SPEAK_TOOL_DEFINITION = {
   name: "speak",
   description:
-    "Speak a response aloud to the user via TTS. Call this when responding to a voice-initiated message, when a long task completes, or when you need user input. Do NOT call for routine tool use.",
+    "Speak a response aloud to the user via local TTS. Pass your full response text — the tool internally summarizes it to one short sentence for spoken playback. No-ops silently when TTS is disabled by the user.",
   inputSchema: {
     type: "object",
     properties: {
       text: {
         type: "string",
-        description: "Text to speak. Will be summarized and formatted for TTS.",
+        description: "Text to speak. Will be summarized to a single short sentence and synthesized.",
       },
     },
     required: ["text"],
