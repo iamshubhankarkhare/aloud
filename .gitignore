@@ -2,3 +2,8 @@ node_modules/
 dist/
 *.wav
 __pycache__/
+
+# Sound pack WAVs are committed; .pytest_cache, .venv, etc. are not
+!plugin/sounds/**/*.wav
+.pytest_cache/
+.venv/
