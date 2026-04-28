@@ -12,8 +12,9 @@
       "description": "Ambient voice channel plugin for Claude Code — local wake word, local STT, local TTS. No cloud required.",
       "category": "productivity",
       "source": {
-        "source": "url",
-        "url": "https://github.com/iamshubhankarkhare/aloud.git"
+        "source": "git-subdir",
+        "url": "https://github.com/iamshubhankarkhare/aloud.git",
+        "path": "plugin"
       },
       "homepage": "https://github.com/iamshubhankarkhare/aloud"
     }
