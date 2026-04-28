@@ -143,10 +143,18 @@ class WakeWordListener:
 
 def main() -> None:
     import json as json_module
+    import signal
     raw = sys.stdin.read()
     config = json_module.loads(raw) if raw.strip() else {}
 
     listener = WakeWordListener(config)
+
+    def _stop(_signum, _frame):
+        listener._running = False
+
+    signal.signal(signal.SIGINT, _stop)
+    signal.signal(signal.SIGTERM, _stop)
+
     try:
         listener.run()
     except KeyboardInterrupt:
