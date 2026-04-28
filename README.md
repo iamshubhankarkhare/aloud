@@ -1,24 +1,23 @@
 # Aloud
 
-Ambient voice channel for Claude Code — local wake word, local STT, local TTS. No cloud required.
+Hook-driven sound effects + sampling-summarized voice output for Claude Code. Local TTS via Kokoro, no cloud required, no microphone needed.
 
-The MCP server listens for a wake word, transcribes via Whisper locally, and forwards what you said to your Claude Code session as a channel event. Claude responds through your speaker via Kokoro TTS.
+When Claude reads files, edits code, runs Bash, fetches the web, or spawns subagents, you hear distinct, soft, lo-fi sounds. When Claude finishes a substantive response, an MCP-sampled one-sentence summary plays through your speaker. Toggle either layer with one command.
 
 ## Prerequisites
 
 - [Bun](https://bun.sh) — `curl -fsSL https://bun.sh/install | bash`
 - Python 3.11+
 - [uv](https://github.com/astral-sh/uv) — `curl -LsSf https://astral.sh/uv/install.sh | sh`
-- macOS or Linux (sound device required)
+- macOS (`afplay`) or Linux (`aplay` / `paplay`)
 
 ## Quick Setup
 
 **1. Install the plugin.**
 
-In a Claude Code session:
-
 ```
-/plugin install <git-url>
+/plugin marketplace add iamshubhankarkhare/aloud
+/plugin install aloud@aloud
 /reload-plugins
 ```
 
@@ -28,47 +27,59 @@ In a Claude Code session:
 /aloud:configure setup
 ```
 
-Creates a Python venv at `~/.claude/channels/aloud/.venv`, installs deps, prompts for wake word/voice/STT model, writes `~/.claude/channels/aloud/config.json`.
+Creates `~/.claude/channels/aloud/.venv`, installs Kokoro, writes default config. Sounds are on by default. TTS is off by default.
 
-**3. Relaunch with the channel flag.**
+**3. Use.**
 
-Exit your session and start a new one:
+Sound effects fire automatically on tool use — no further action. To enable spoken summaries:
 
-```sh
-claude --channels plugin:aloud@<source>
+```
+/aloud:configure tts on
 ```
 
-The first TTS request downloads Kokoro models (~330MB) to `~/.claude/channels/aloud/models/` — one-time.
-
-**4. Talk.**
-
-Say your wake word. Ask anything. Claude responds through your speaker.
+The first voice output downloads Kokoro models (~330MB) to `~/.claude/channels/aloud/models/`, one-time.
 
 ## Runtime control
 
-`/aloud:configure` is the single skill — same one for setup, mute, sensitivity, status, reinstall.
-
 ```
-/aloud:configure                          # status
-/aloud:configure setup                    # interactive setup or update
-/aloud:configure mute                     # ignore wake word
-/aloud:configure unmute                   # resume listening
-/aloud:configure sensitivity 0.6          # adjust wake word strictness
-/aloud:configure reinstall                # rebuild the Python venv
+/aloud:configure                    # status
+/aloud:configure sounds on          # toggle sound effects
+/aloud:configure sounds off
+/aloud:configure tts on             # toggle voice summaries
+/aloud:configure tts off
+/aloud:configure volume 0.7         # 0.0–1.0
+/aloud:configure voice af_bella     # Kokoro voice
+/aloud:configure test               # play every sound, audition the pack
 ```
 
-Mute/sensitivity changes take effect immediately — the server re-reads `config.json` on every voice event.
+Changes take effect immediately — no restart.
+
+## What plays when
+
+| Event | Sound | When |
+|---|---|---|
+| `Read` / `Grep` / `Glob` / `LS` | scan | tool dispatch |
+| `Edit` / `Write` / `MultiEdit` | type | tool dispatch |
+| `Bash` | term | tool dispatch |
+| `WebFetch` / `WebSearch` | web | tool dispatch |
+| `Task` (subagent) | agent | tool dispatch |
+| Permission needed | permission | Notification hook |
+| Session start | welcome | session boot |
+| Turn end | done | Stop hook |
+
+Voice summary fires when Claude calls `speak()` after a substantive response (system-prompt-nudged, only if TTS is enabled).
 
 ## Configuration
 
-See [ACCESS.md](./ACCESS.md) for the full config schema, state-dir layout, and TTS/STT provider options.
+See [plugin/ACCESS.md](./plugin/ACCESS.md) for the full config schema, sound pack details, and TTS provider options.
 
-## Tools exposed to the assistant
+## Architecture
 
-| Tool | Purpose |
-| --- | --- |
-| `speak` | Speak a response aloud. The text is summarized for spoken output via MCP sampling, then synthesized by Kokoro and played through the speaker. Call when responding to a voice-initiated message, when a long task completes, or when you need user input. Do NOT call for routine silent tool use. |
+Two independent paths:
+
+- **Sound effects:** Claude Code hooks (`PreToolUse`, `PostToolUse`, `Notification`, `SessionStart`, `Stop`) → `play.sh` wrapper → `afplay`/`aplay` on a bundled WAV pack. No MCP roundtrip. Hooks fire instantly.
+- **TTS:** Claude calls `speak()` MCP tool → MCP sampling generates a one-sentence spoken summary → Kokoro synthesizes → speaker. The handler re-reads `config.json` per call so toggles work without restart.
 
 ## License
 
-MIT
+MIT — sound pack is CC0 (procedurally generated by `plugin/scripts/gen-sounds.py`, no copyrighted samples).
